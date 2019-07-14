@@ -113,7 +113,7 @@ def connectedComp(Iv,I,r):
     hist=np.divide(hist,rows*cols)
     hist=np.multiply(hist,100)
     sm=0
-    print(np.shape(hist),'\n')
+    
     for i in range(0,256):    # is it same for postive and negative image
         sm=sm+hist[i]
         if(sm>89.9):
@@ -256,9 +256,10 @@ def connectedComp(Iv,I,r):
                 h=label[i][j]
                 sz=mask[1][h]
                 d=np.where(lst==h)
-                if(sz<4):
+                """if(sz<4):
                     label[i][j]=0
                     continue
+                """
                 if(np.size(d)):
                     k=d[0][0]
                     label[i][j]=k
@@ -301,12 +302,25 @@ def connectedComp(Iv,I,r):
     
     return (lab,v)
 
-def find1(high,i,j):
-    if(high[i][7]==i):
-        return i
-    while(high[i][7]!=i):
-        i=high[i][7]
-    return i
+def find1(high,i):
+    y=i
+    while(high[y][7]!=y):
+        y=high[y][7]
+    high[i][7]=y
+    return y
+
+def combineSame(high,i,j):
+    res=np.zeros([8],dtype=np.long)
+    res[0]=high[i][0]+high[j][0]
+    res[1]=high[i][0]*high[i][1]+high[j][0]*high[j][1]
+    res[2]=high[i][0]*high[i][2]+high[j][0]*high[j][2]
+    res[1]=res[1]/(high[i][0]+high[j][0])
+    res[2]=res[2]/(high[i][0]+high[j][0])
+    res[3]=min(high[i][3],high[j][3])
+    res[4]=min(high[i][4],high[j][4])
+    res[5]=max(high[i][5],high[j][5])
+    res[6]=max(high[i][6],high[j][6])
+    return res
 
 def combine(keep,n):
     high=[]
@@ -319,10 +333,30 @@ def combine(keep,n):
         high.append(res)
     #res=np.zeros([8],dtype=np.long)
 
-    print('check ', n)
-
+    for i in range(n):
+        for j in range(n):
+            x=find1(high,i)
+            y=find1(high,j)
+            if(x==y):
+                continue
+            sz=max(high[x][0],high[y][0])
+            sz=np.sqrt(sz)
+            sz=sz/6
+            iou=findIOU(high[x][3],high[x][5],high[x][4],high[x][6],high[y][3],high[y][5],high[y][4],high[y][6])
+            if(iou>0.01):
+                #print(sz)
+                high[y][7]=x
+                res=combineSame(high,x,y)
+                high[x]=res
+                high[x][7]=x
+                
+    shad=[]
+    for i in range(n):
+        if(high[i][7]==i):
+            shad.append(high[i])
     
-    return high
+    print('check ', n)
+    return shad
 
 
 
@@ -353,10 +387,10 @@ N=O-I
 # The large features are removed using median filters for I and N respectively
 
 
-MI = cv2.medianBlur(I, 101)
+MI = cv2.medianBlur(I, 81)
 I=np.subtract(np.float32(I),np.float32(MI))
 
-MN = cv2.medianBlur(N, 101)
+MN = cv2.medianBlur(N, 81)
 N=np.subtract(np.float32(N),np.float32(MN))
 
 # Im and 1 used for plotting purpose
@@ -433,9 +467,6 @@ for i in range(0,n2):
     if(keep2[i][0]):
         keep2[i][1]=keep2[i][1]/keep2[i][0]
         keep2[i][2]=keep2[i][2]/keep2[i][0]
-    xl=keep2[i][5]-keep2[i][3]+1   #
-    yl=keep2[i][6]-keep2[i][4]+1
-    keep2[i][7]=xl*yl
     #if(keep2[i][0]>keep2[i][7]):
     #    print(keep2[i][0],' ',keep2[i][7],'\n')
 
@@ -456,7 +487,7 @@ for i in range(1,n1):    # no. of connected componant in highlight
         sz2=max(shad[j][7],high[i][7]) # fix
         sz=max(sz1,sz2)
         sz=np.sqrt(sz)
-        if(distt<2*sz):
+        if(distt<2.5*sz):
             temp=union(high,shad,i,j)
             box.append(temp)  # i: highlight index, j: shadow index
             #merge shadow and highlight
@@ -472,7 +503,7 @@ for i in range(0,n):
 for i in range(n):
     for j in range(n):
         iou=findIOU(box[i][3],box[i][5],box[i][4],box[i][6],box[j][3],box[j][5],box[j][4],box[j][6])
-        if(iou>0.7):
+        if(iou>0.45):
             box[j][7]=i
             temp=unionSame(box,i,j)
             box[i]=temp
@@ -486,7 +517,6 @@ for i in range(n):
 [cnt,z]=np.shape(bbox)
 
 dim=(32,32)
-print('cnt ',cnt)
 
 plt.figure()
 plt.imshow(Im)
@@ -499,7 +529,7 @@ for i in range(0,cnt):
     xx=bbox[i][5]
     yn=bbox[i][4]
     yx=bbox[i][6]
-    data.append([xn,yn,xx-xn+1,yx-yn+1])
+    data.append([xn-2,yn-2,xx-xn+5,yx-yn+5])
     """
     img=Im[xn:xx,yn:yx]
     img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA) # fix
@@ -510,18 +540,7 @@ for i in range(0,cnt):
     plt.plot([yx,yn],[xx,xx],'c')
     plt.plot([yn,yn],[xx,xn],'c')
 
-print(np.shape(data))
-"""
-header = ['x', 'y', 'w', 'l']
-with open('craters.csv', 'wt',newline='') as f:
-    csv_writer = csv.writer(f)
- 
-    csv_writer.writerow(header) # write header
- 
-    for row in data:
-        csv_writer.writerow(row)
 
-"""  
-np.savetxt('test.csv', data,header = 'x,y,w,h', delimiter=',')
+np.savetxt('test1.csv', data,header = 'x,y,w,h', delimiter=',')
 
 plt.show()

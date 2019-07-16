@@ -15,5 +15,7 @@ I would like to express the deepest appreciation to my project mentor Dr. Nitin 
 
 
 
-Date: 14/07/2019								Rajnish Kumar Ranjan
-IIT Gandhinagar
+Date: 14/07/2019								
+<p align="right">IIT Gandhinagar</p>
+<br>
+Rajnish Kumar Ranjan
